@@ -1,0 +1,45 @@
+
+An implementation of CLAHE on OpenCL.
+
+Need to calculate N by M histograms given an array of data, a width, height, and
+LDA (leading dimension stride).
+
+Once these histograms are calculated, they are contrast limited.  You provide a
+value between 0 (full contrast limiting, no histogram equalization) and infinity
+(no contrast limiting, full histogram equalization in each tile).
+
+Note that image normalization is implicit here even if you use 0 and don't do
+any histogram equalization.  This is because we only redistribute values to bins
+within the min and max of the entire image.  At some point this may be exposed
+as an option (not sure this is really that useful), or as an option to normalize
+per tile (might be interesting).
+
+* Building
+
+Building is done via CMake.  See the documentation for how to use CMake to
+create a build configuration for your toolchain.  If you are using a standard
+GNU style toolchain, use:
+
+#+BEGIN_SRC shell
+  mkdir build
+  cd build
+  cmake ..
+  make
+#+END_SRC
+
+To use whatever your systems CMake default is and try to do the right thing,
+try:
+
+#+BEGIN_SRC shell
+  mkdir build
+  cd build
+  cmake ..
+  cmake --build . --config Release
+#+END_SRC
+
+* License
+
+This software is, wherever possible, licensed according to the GPLv3 or higher,
+see COPYING.
+
+Some of the assets for testing and example programs may be CC licensed.
