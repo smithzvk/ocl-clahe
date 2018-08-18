@@ -428,6 +428,12 @@ int main(int argc, char **argv)
       return EXIT_FAILURE;
    }
 
+   if (WIDTH % N_X_TILES || HEIGHT % N_Y_TILES)
+   {
+      printf("N_X/Y_TILES must evenly divide WIDTH/HEIGHT\n");
+      return EXIT_FAILURE;
+   }
+
    int nBins = N_BINS;
    int iTile = 0;
    int jTile = 0;
@@ -437,8 +443,8 @@ int main(int argc, char **argv)
    int maxVal = 255;
    int width = WIDTH;
    int height = HEIGHT;
-   int tileWidth = 80;
-   int tileHeight = 80;
+   int tileWidth = WIDTH / N_X_TILES;
+   int tileHeight = HEIGHT / N_Y_TILES;
    int ldaNumer = WIDTH;
    int ldaDenom = 1;
    // A ratio that is close to an 60 degrees
