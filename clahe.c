@@ -110,21 +110,21 @@ cl_int prefixSumEx(cl_command_queue queue, cl_kernel k_prefixSum, cl_kernel k_pr
    return err;
 }
 
-void histogram(cl_command_queue queue,
-               cl_kernel k_histogram,
-               cl_mem d_img,
-               cl_int nBins,
-               cl_int iTile,
-               cl_int jTile,
-               cl_mem d_hist,
-               cl_int minVal,
-               cl_int maxVal,
-               cl_int width,
-               cl_int height,
-               cl_int tileWidth,
-               cl_int tileHeight,
-               cl_int ldaNumer,
-               cl_int ldaDenom)
+int histogram(cl_command_queue queue,
+              cl_kernel k_histogram,
+              cl_mem d_img,
+              cl_int nBins,
+              cl_int iTile,
+              cl_int jTile,
+              cl_mem d_hist,
+              cl_int minVal,
+              cl_int maxVal,
+              cl_int width,
+              cl_int height,
+              cl_int tileWidth,
+              cl_int tileHeight,
+              cl_int ldaNumer,
+              cl_int ldaDenom)
 {
    cl_int iHist = jTile * N_X_TILES + iTile;
 
@@ -158,22 +158,22 @@ void histogram(cl_command_queue queue,
    }
 }
 
-void equalize(cl_command_queue queue,
-              cl_kernel k_equalize,
-              cl_mem d_img,
-              cl_int width,
-              cl_int height,
-              cl_int iTile,
-              cl_int jTile,
-              cl_int tileWidth,
-              cl_int tileHeight,
-              cl_int ldaNumer,
-              cl_int ldaDenom,
-              cl_int minVal,
-              cl_int maxVal,
-              cl_mem d_cdf,
-              cl_int nBins,
-              cl_mem d_imgOut)
+int equalize(cl_command_queue queue,
+             cl_kernel k_equalize,
+             cl_mem d_img,
+             cl_int width,
+             cl_int height,
+             cl_int iTile,
+             cl_int jTile,
+             cl_int tileWidth,
+             cl_int tileHeight,
+             cl_int ldaNumer,
+             cl_int ldaDenom,
+             cl_int minVal,
+             cl_int maxVal,
+             cl_mem d_cdf,
+             cl_int nBins,
+             cl_mem d_imgOut)
 {
    cl_float normalizationFactor = 255.0 / (tileWidth * tileHeight);
    cl_int iCdf = jTile * N_X_TILES + iTile;
@@ -204,12 +204,12 @@ void equalize(cl_command_queue queue,
    }
 }
 
-void limitContrast(cl_command_queue queue,
-                   cl_kernel k_clipHistogram, cl_kernel k_addExcess,
-                   cl_mem d_hist, cl_int iHist, cl_int nBins,
-                   cl_int tileWidth, cl_int tileHeight,
-                   cl_float contrastLimit, cl_mem d_excess,
-                   cl_int minBin, cl_int maxBin)
+int limitContrast(cl_command_queue queue,
+                  cl_kernel k_clipHistogram, cl_kernel k_addExcess,
+                  cl_mem d_hist, cl_int iHist, cl_int nBins,
+                  cl_int tileWidth, cl_int tileHeight,
+                  cl_float contrastLimit, cl_mem d_excess,
+                  cl_int minBin, cl_int maxBin)
 {
    // contrastLimit >> 1 means no contrast equalization; ~1 means strong
    // contrast limiting and thus weak histogram equalization; 0 means the
