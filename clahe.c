@@ -8,6 +8,8 @@
 #include <math.h>
 #include <time.h>
 
+// Target OpenCL 1.2
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 #include <CL/cl.h>
 
 #define SEPARATOR ("----------------------------------------------------------------------\n")
