@@ -253,7 +253,7 @@ int main(int argc, char **argv)
 
    if (argc != 4)
    {
-      fprintf(stderr, "Usage: %s input-pgm-image output-pgm-image\n", argv[0]);
+      fprintf(stderr, "Usage: %s input-pgm-image output-pgm-image contrast-limit\n", argv[0]);
       exit(1);
    }
 
