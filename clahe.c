@@ -16,6 +16,9 @@
 
 #define min(A,B) ((A) < (B) ? (A) : (B))
 
+// Flags for debug output
+int printHistograms;
+
 int GROUP_SIZE = 128;
 
 static char *
@@ -150,7 +153,8 @@ int histogram(cl_command_queue queue,
    {
       size_t gws[] = {tileWidth, tileHeight};
       size_t goff[] ={iTile * WIDTH/N_X_TILES, jTile * HEIGHT/N_Y_TILES};
-      printf("Histogram %d %d\n", iTile, jTile);
+      if (printHistograms)
+         printf("Histogram %d %d\n", iTile, jTile);
       err |= clEnqueueNDRangeKernel(queue, k_histogram, 2, goff, gws, NULL, 0, NULL, NULL);
       if (err != CL_SUCCESS)
       {
@@ -251,15 +255,16 @@ int limitContrast(cl_command_queue queue,
 
 int main(int argc, char **argv)
 {
-   cl_int              err = CL_SUCCESS;
+   cl_int err = CL_SUCCESS;
 
-   if (argc != 4)
+   if (argc != 5)
    {
-      fprintf(stderr, "Usage: %s input-pgm-image output-pgm-image contrast-limit\n", argv[0]);
+      fprintf(stderr, "Usage: %s input-pgm-image output-pgm-image contrast-limit print-histograms\n", argv[0]);
       exit(1);
    }
 
    float contrastLimit = atof(argv[3]);
+   printHistograms = atoi(argv[4]);
 
    cl_platform_id platIds[10] = {0};
    cl_uint nPlatforms;
@@ -539,12 +544,13 @@ int main(int argc, char **argv)
 
    clEnqueueReadBuffer(queue, d_imgOut, CL_TRUE, 0, sizeof(cl_uchar) * nPixels, dstImg, 0, NULL, NULL);
 
-   for (int i = 0; i < N_TILES; i++)
-   {
-      for (int j = 0; j < N_BINS; j++)
-         printf("(%d %d %d %d) ", j, hist[i][j], cdfLo[i][j], cdf[i][j]);
-      printf("\n");
-   }
+   if (printHistograms)
+      for (int i = 0; i < N_TILES; i++)
+      {
+         for (int j = 0; j < N_BINS; j++)
+            printf("(%d %d %d %d) ", j, hist[i][j], cdfLo[i][j], cdf[i][j]);
+         printf("\n");
+      }
 
    for (int i = 0; i < (N_BINS < WIDTH? N_BINS : WIDTH); i++)
    {
