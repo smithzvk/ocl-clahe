@@ -41,9 +41,9 @@ slurpFile(const char *filename)
 }
 
 #define N_BINS 256
-#define N_X_TILES 4
-#define N_Y_TILES 4
-#define N_TILES (N_X_TILES * N_Y_TILES)
+int xTiles;
+int yTiles;
+int nTiles;
 #define WIDTH 320
 #define HEIGHT 320
 
@@ -131,7 +131,7 @@ int histogram(cl_command_queue queue,
               cl_int ldaNumer,
               cl_int ldaDenom)
 {
-   cl_int iHist = jTile * N_X_TILES + iTile;
+   cl_int iHist = jTile * xTiles + iTile;
 
    cl_int err = CL_SUCCESS;
    err |= clSetKernelArg(k_histogram, 0, sizeof(cl_mem), &d_img);
@@ -152,7 +152,7 @@ int histogram(cl_command_queue queue,
    else
    {
       size_t gws[] = {tileWidth, tileHeight};
-      size_t goff[] ={iTile * WIDTH/N_X_TILES, jTile * HEIGHT/N_Y_TILES};
+      size_t goff[] ={iTile * WIDTH/xTiles, jTile * HEIGHT/yTiles};
       if (printHistograms)
          printf("Histogram %d %d\n", iTile, jTile);
       err |= clEnqueueNDRangeKernel(queue, k_histogram, 2, goff, gws, NULL, 0, NULL, NULL);
@@ -182,7 +182,7 @@ int equalize(cl_command_queue queue,
              cl_mem d_imgOut)
 {
    cl_float normalizationFactor = 255.0 / (tileWidth * tileHeight);
-   cl_int iCdf = jTile * N_X_TILES + iTile;
+   cl_int iCdf = jTile * xTiles + iTile;
 
    cl_int err = CL_SUCCESS;
    err |= clSetKernelArg(k_equalize, 0, sizeof(cl_mem), &d_img);
@@ -203,7 +203,7 @@ int equalize(cl_command_queue queue,
       return EXIT_FAILURE;
    }
    {
-      size_t goff[] ={iTile * WIDTH/N_X_TILES, jTile * HEIGHT/N_Y_TILES};
+      size_t goff[] = {iTile * WIDTH/xTiles, jTile * HEIGHT/yTiles};
       size_t gws[] = {tileWidth, tileHeight};
       printf("Equalize %d %d\n", iTile, jTile);
       clEnqueueNDRangeKernel(queue, k_equalize, 2, goff, gws, NULL, 0, NULL, NULL);
@@ -214,7 +214,7 @@ int limitContrast(cl_command_queue queue,
                   cl_kernel k_clipHistogram, cl_kernel k_addExcess,
                   cl_mem d_hist, cl_int iHist, cl_int nBins,
                   cl_int tileWidth, cl_int tileHeight,
-                  cl_float contrastLimit, cl_mem d_excess,
+                  cl_float contrastLimit, cl_int *d_excess,
                   cl_int minBin, cl_int maxBin)
 {
    // contrastLimit >> 1 means no contrast equalization; ~1 means strong
@@ -224,25 +224,25 @@ int limitContrast(cl_command_queue queue,
 
    cl_int err = CL_SUCCESS;
 
-   err |= clSetKernelArg(k_clipHistogram, 0, sizeof(cl_mem), &d_hist);
+   err |= clSetKernelArg(k_clipHistogram, 0, sizeof(cl_int *), &d_hist);
    err |= clSetKernelArg(k_clipHistogram, 1, sizeof(cl_int), &iHist);
    err |= clSetKernelArg(k_clipHistogram, 2, sizeof(cl_int), &nBins);
    err |= clSetKernelArg(k_clipHistogram, 3, sizeof(cl_int), &maxCount);
-   err |= clSetKernelArg(k_clipHistogram, 4, sizeof(cl_mem), &d_excess);
+   err |= clSetKernelArg(k_clipHistogram, 4, sizeof(cl_int *), &d_excess);
    if (err != CL_SUCCESS)
    {
       printf("Error: Failed to set arguments!\n");
       return EXIT_FAILURE;
    }
    size_t histGws[] = {nBins};
-   clEnqueueNDRangeKernel(queue, k_clipHistogram, 1, NULL, histGws, NULL, 0, NULL, NULL);
+   clEnqueueNDRangeKernel(queue, k_clipHistogram, 1, NULL, histGws, NULL,
+                          0, NULL, NULL);
 
-
-   err |= clSetKernelArg(k_addExcess, 0, sizeof(cl_mem), &d_hist);
+   err |= clSetKernelArg(k_addExcess, 0, sizeof(cl_int *), &d_hist);
    err |= clSetKernelArg(k_addExcess, 1, sizeof(cl_int), &iHist);
    err |= clSetKernelArg(k_addExcess, 2, sizeof(cl_int), &nBins);
    err |= clSetKernelArg(k_addExcess, 3, sizeof(cl_int), &maxCount);
-   err |= clSetKernelArg(k_addExcess, 4, sizeof(cl_mem), &d_excess);
+   err |= clSetKernelArg(k_addExcess, 4, sizeof(cl_int *), &d_excess);
    err |= clSetKernelArg(k_addExcess, 5, sizeof(cl_int), &minBin);
    err |= clSetKernelArg(k_addExcess, 6, sizeof(cl_int), &maxBin);
    if (err != CL_SUCCESS)
@@ -257,14 +257,29 @@ int main(int argc, char **argv)
 {
    cl_int err = CL_SUCCESS;
 
-   if (argc != 5)
+   if (argc != 6)
    {
-      fprintf(stderr, "Usage: %s input-pgm-image output-pgm-image contrast-limit print-histograms\n", argv[0]);
+      fprintf(stderr, "Usage: %s input-pgm-image output-pgm-image n-tiles contrast-limit print-histograms\n", argv[0]);
       exit(1);
    }
 
-   float contrastLimit = atof(argv[3]);
-   printHistograms = atoi(argv[4]);
+   char *nTilesSpec = argv[3];
+   char *xTilesString = strtok(nTilesSpec, "x");
+   if (xTilesString == NULL)
+   {
+      printf("Error parsing nTiles specification\n");
+      return EXIT_FAILURE;
+   }
+   char *yTilesString = strtok(NULL, "x");
+   if (yTilesString == NULL)
+      yTilesString = xTilesString;
+
+   xTiles = atoi(xTilesString);
+   yTiles = atoi(yTilesString);
+   nTiles = xTiles * yTiles;
+
+   float contrastLimit = atof(argv[4]);
+   printHistograms = atoi(argv[5]);
 
    cl_platform_id platIds[10] = {0};
    cl_uint nPlatforms;
@@ -397,16 +412,16 @@ int main(int argc, char **argv)
       printf("Error: Failed to create kernel!\n");
       return EXIT_FAILURE;
    }
-   cl_mem d_hist = clCreateBuffer(ctx, CL_MEM_READ_WRITE, N_BINS * N_TILES * sizeof(cl_int), NULL, NULL);
+   cl_mem d_hist = clCreateBuffer(ctx, CL_MEM_READ_WRITE, N_BINS * nTiles * sizeof(cl_int), NULL, NULL);
    cl_mem d_img = clCreateBuffer(ctx, CL_MEM_READ_WRITE, nPixels * sizeof(cl_uchar), NULL, NULL);
    cl_mem d_imgOut = clCreateBuffer(ctx, CL_MEM_READ_WRITE, nPixels * sizeof(cl_uchar), NULL, NULL);
-   cl_mem d_excess = clCreateBuffer(ctx, CL_MEM_READ_WRITE, N_TILES * sizeof(cl_int), NULL, NULL);
+   cl_mem d_excess = clCreateBuffer(ctx, CL_MEM_READ_WRITE, nTiles * sizeof(cl_int), NULL, NULL);
 
    uint8_t srcImg[WIDTH][HEIGHT];
    uint8_t dstImg[WIDTH][HEIGHT];
-   int hist[N_TILES][N_BINS] = {0};
+   int *hist = (int *) calloc(nTiles * N_BINS, sizeof(int));
 
-   err |= clEnqueueWriteBuffer(queue, d_hist, CL_TRUE, 0, sizeof(int) * N_TILES * N_BINS, hist, 0, NULL, NULL);
+   err |= clEnqueueWriteBuffer(queue, d_hist, CL_TRUE, 0, sizeof(int) * nTiles * N_BINS, hist, 0, NULL, NULL);
 
    FILE *in = fopen(argv[1], "rb");
 #define MAX_HEADER_LENGTH 8192
@@ -428,7 +443,7 @@ int main(int argc, char **argv)
       return EXIT_FAILURE;
    }
 
-   if (WIDTH % N_X_TILES || HEIGHT % N_Y_TILES)
+   if (WIDTH % xTiles || HEIGHT % yTiles)
    {
       printf("N_X/Y_TILES must evenly divide WIDTH/HEIGHT\n");
       return EXIT_FAILURE;
@@ -437,14 +452,12 @@ int main(int argc, char **argv)
    int nBins = N_BINS;
    int iTile = 0;
    int jTile = 0;
-   int iHist = jTile * N_X_TILES + iTile;
-   int iCdf = iHist;
    int minVal = 0;
    int maxVal = 255;
    int width = WIDTH;
    int height = HEIGHT;
-   int tileWidth = WIDTH / N_X_TILES;
-   int tileHeight = HEIGHT / N_Y_TILES;
+   int tileWidth = WIDTH / xTiles;
+   int tileHeight = HEIGHT / yTiles;
    int ldaNumer = WIDTH;
    int ldaDenom = 1;
    // A ratio that is close to an 60 degrees
@@ -452,8 +465,8 @@ int main(int argc, char **argv)
    /* int ldaDenom = 7; */
 
    /* int i = 0; */
-   for (int j = 0; j < N_X_TILES; j++)
-      for (int i = 0; i < N_Y_TILES; i++)
+   for (int j = 0; j < xTiles; j++)
+      for (int i = 0; i < yTiles; i++)
          histogram(queue, k_histogram,
                    d_img, nBins,
                    i, j,
@@ -463,8 +476,8 @@ int main(int argc, char **argv)
                    tileWidth, tileHeight,
                    ldaNumer, ldaDenom);
 
-   int h_excess[N_TILES] = {0};
-   clEnqueueWriteBuffer(queue, d_excess, CL_TRUE, 0, N_TILES * sizeof(cl_int), &h_excess, 0, NULL, NULL);
+   int *h_excess = (int *) calloc(nTiles, sizeof(int));
+   clEnqueueWriteBuffer(queue, d_excess, CL_TRUE, 0, nTiles * sizeof(cl_int), h_excess, 0, NULL, NULL);
 
    // Compute min and max
    cl_mem d_imgWorking1 = clCreateBuffer(ctx, CL_MEM_READ_WRITE,
@@ -494,31 +507,31 @@ int main(int argc, char **argv)
 
    int minBin = (float) (minImgVal - minVal) * nBins / (maxVal - minVal);
    int maxBin = (float) (maxImgVal - minVal) * nBins / (maxVal - minVal);
-   for (int i = 0; i < N_TILES; i++)
+   for (int i = 0; i < nTiles; i++)
       limitContrast(queue,
                     k_clipHistogram, k_addExcess,
                     d_hist, i, nBins, tileWidth, tileHeight,
-                    contrastLimit, d_excess, minImgVal, maxImgVal);
+                    contrastLimit, d_excess, minBin, maxBin);
 
    // Save the histogram
-   clEnqueueReadBuffer(queue, d_hist, CL_TRUE, 0, sizeof(cl_int) * N_TILES * N_BINS, hist, 0, NULL, NULL);
+   clEnqueueReadBuffer(queue, d_hist, CL_TRUE, 0, sizeof(cl_int) * nTiles * N_BINS, hist, 0, NULL, NULL);
 
-   cl_mem d_working = clCreateBuffer(ctx, CL_MEM_READ_WRITE, N_BINS * N_TILES * sizeof(cl_int), NULL, NULL);
-   for (int i = 0; i < N_TILES; i++)
+   cl_mem d_working = clCreateBuffer(ctx, CL_MEM_READ_WRITE, N_BINS * nTiles * sizeof(cl_int), NULL, NULL);
+   for (int i = 0; i < nTiles; i++)
       // d_hist now holds the inclusive cdf and d_working holds the exclusive cdf
       prefixSumEx(queue, k_prefixSum, k_prefixSumIncToExc, d_hist, d_working, i, N_BINS);
 
 
-   int cdf[N_TILES][N_BINS] = {0};
-   clEnqueueReadBuffer(queue, d_hist, CL_TRUE, 0, sizeof(cl_int) * N_TILES * N_BINS, cdf, 0, NULL, NULL);
-   int cdfLo[N_TILES][N_BINS] = {0};
-   clEnqueueReadBuffer(queue, d_working, CL_TRUE, 0, sizeof(cl_int) * N_TILES * N_BINS, cdfLo, 0, NULL, NULL);
+   int *cdf = (int *) calloc(nTiles * N_BINS, sizeof(int));
+   clEnqueueReadBuffer(queue, d_hist, CL_TRUE, 0, sizeof(cl_int) * nTiles * N_BINS, cdf, 0, NULL, NULL);
+   int *cdfLo = (int *) calloc(nTiles * N_BINS, sizeof(int));
+   clEnqueueReadBuffer(queue, d_working, CL_TRUE, 0, sizeof(cl_int) * nTiles * N_BINS, cdfLo, 0, NULL, NULL);
 
    cl_float normalizationFactor = 255.0 / (tileWidth * tileHeight);
 
    err = CL_SUCCESS;
-   cl_int nWidthTiles = N_X_TILES;
-   cl_int nHeightTiles = N_Y_TILES;
+   cl_int nWidthTiles = xTiles;
+   cl_int nHeightTiles = yTiles;
    err |= clSetKernelArg(k_localEqualize, 0, sizeof(cl_mem), &d_img);
    err |= clSetKernelArg(k_localEqualize, 1, sizeof(cl_int), &width);
    err |= clSetKernelArg(k_localEqualize, 2, sizeof(cl_int), &height);
@@ -551,10 +564,13 @@ int main(int argc, char **argv)
    clEnqueueReadBuffer(queue, d_imgOut, CL_TRUE, 0, sizeof(cl_uchar) * nPixels, dstImg, 0, NULL, NULL);
 
    if (printHistograms)
-      for (int i = 0; i < N_TILES; i++)
+      for (int i = 0; i < nTiles; i++)
       {
          for (int j = 0; j < N_BINS; j++)
-            printf("(%d %d %d %d) ", j, hist[i][j], cdfLo[i][j], cdf[i][j]);
+            printf("(%d %d %d %d) ", j,
+                   hist[i * N_BINS + j],
+                   cdfLo[i * N_BINS + j],
+                   cdf[i * N_BINS + j]);
          printf("\n");
       }
 
@@ -580,6 +596,10 @@ int main(int argc, char **argv)
    fwrite(dstImg, sizeof(uint8_t), nPixels, out);
    fclose(out);
 
+   free(h_excess);
+   free(hist);
+   free(cdf);
+   free(cdfLo);
    clReleaseProgram(program);
    clReleaseCommandQueue(queue);
    clReleaseContext(ctx);
