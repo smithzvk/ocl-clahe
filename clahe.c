@@ -40,7 +40,8 @@ slurpFile(const char *filename)
    return source;
 }
 
-#define N_BINS 256
+/* #define N_BINS 256 */
+#define N_BINS 32
 int xTiles;
 int yTiles;
 int nTiles;
@@ -220,6 +221,7 @@ int limitContrast(cl_command_queue queue,
    // contrastLimit >> 1 means no contrast equalization; ~1 means strong
    // contrast limiting and thus weak histogram equalization; 0 means the
    // original image is returned (full contrast limitation).
+   /* int maxCount = contrastLimit * tileHeight * tileWidth / (maxBin - minBin); */
    int maxCount = contrastLimit * tileHeight * tileWidth / nBins;
 
    cl_int err = CL_SUCCESS;
@@ -308,7 +310,7 @@ int main(int argc, char **argv)
       return EXIT_FAILURE;
    }
 
-	GROUP_SIZE = min(GROUP_SIZE, max_workgroup_size);
+   GROUP_SIZE = min(GROUP_SIZE, max_workgroup_size);
 
    cl_char vendor_name[1024] = {0};
    cl_char device_name[1024] = {0};
