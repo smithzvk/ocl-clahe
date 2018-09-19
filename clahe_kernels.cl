@@ -322,3 +322,64 @@ localEqualize(global const uchar *data,
    uchar newVal = fval * normalizationFactor;
    out[j * width + i] = newVal;
 }
+
+#ifndef TYPE_A
+#define TYPE_A uchar
+#endif
+
+#ifndef TYPE_B
+#define TYPE_B float
+#endif
+
+kernel
+void
+convertAToB(global TYPE_A *in,
+            global TYPE_B *out,
+            TYPE_A preScale,
+            char preOffsetSign,
+            TYPE_A preOffset,
+            TYPE_B postScale,
+            char postOffsetSign,
+            TYPE_B postOffset,
+            int size)
+{
+   int i = get_global_id(0);
+   if (i >= size) return;
+
+   TYPE_A val_a = in[i] * preScale + preOffsetSign * preOffset;
+   TYPE_B val_b = postScale * ((TYPE_B) val_a) + postOffsetSign * postOffset;
+   out[i] = val_b;
+}
+
+/* This routine computes a variance map of a video.  This is basically a measure
+ * of the variance in some video per pixel (or at least in some local area).
+ * The idea is that this will give a measure of how likely new pixel data
+ * matches the pattern of previous data. */
+kernel
+void
+imageStats(global const float *values,
+           int width, int height,
+           float fmaAlpha,
+           global float *mean,
+           global float *squareMean,
+           global float *variance)
+{
+   int2 pixel = (int2) (width, height);
+
+   if (pixel.x >= width || pixel.y >= height)
+      return;
+
+   int idx = pixel.x + pixel.y * width;
+
+   float meanVal = mean[idx];
+   meanVal = meanVal * fmaAlpha + (1.0f - fmaAlpha) * values[idx];
+   mean[idx] = meanVal;
+
+   float square = values[idx];
+   square *= square;
+   float squareMeanVal = squareMean[idx];
+   squareMeanVal = squareMeanVal * fmaAlpha + (1.0f - fmaAlpha) * square;
+   squareMean[idx] = squareMeanVal;
+
+   variance[idx] = squareMeanVal - meanVal * meanVal;
+}
