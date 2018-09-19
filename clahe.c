@@ -62,12 +62,12 @@ uint32_t nextPowerOfTwo(uint32_t val)
 }
 
 cl_int prefixSum(cl_command_queue queue, cl_kernel k_prefixSum,
-                 uint8_t *d_data, uint8_t *d_working, int iHist, int size)
+                 cl_mem d_data, cl_mem d_working, int iHist, int size)
 {
    cl_int err = CL_SUCCESS;
 
-   uint8_t *d_input = d_working;
-   uint8_t *d_output = d_data;
+   cl_mem d_input = d_working;
+   cl_mem d_output = d_data;
 
    int start = N_BINS * iHist;
    for (int offset = 1;
@@ -77,7 +77,7 @@ cl_int prefixSum(cl_command_queue queue, cl_kernel k_prefixSum,
    {
       /* printf("offset: %d, d_output == d_working: %d\n", offset, d_output == d_working); */
       // Swap d_input and d_output each iteration to avoid a copy
-      uint8_t *temp = d_input;
+      cl_mem temp = d_input;
       d_input = d_output;
       d_output = temp;
 
@@ -98,7 +98,7 @@ cl_int prefixSum(cl_command_queue queue, cl_kernel k_prefixSum,
 /* Exclusive version.  Just do an inclusive sum and then shift over the elements
  * inserting the defined operator's zero into the first element. */
 cl_int prefixSumEx(cl_command_queue queue, cl_kernel k_prefixSum, cl_kernel k_prefixSumIncToExc,
-                   uint8_t *d_input, uint8_t *d_output, int iHist, int size)
+                   cl_mem d_input, cl_mem d_output, int iHist, int size)
 {
    prefixSum(queue, k_prefixSum, d_input, d_output, iHist, size);
 
@@ -417,7 +417,7 @@ int main(int argc, char **argv)
    cl_mem d_hist = clCreateBuffer(ctx, CL_MEM_READ_WRITE, N_BINS * nTiles * sizeof(cl_int), NULL, NULL);
    cl_mem d_img = clCreateBuffer(ctx, CL_MEM_READ_WRITE, nPixels * sizeof(cl_uchar), NULL, NULL);
    cl_mem d_imgOut = clCreateBuffer(ctx, CL_MEM_READ_WRITE, nPixels * sizeof(cl_uchar), NULL, NULL);
-   cl_mem d_excess = clCreateBuffer(ctx, CL_MEM_READ_WRITE, nTiles * sizeof(cl_int), NULL, NULL);
+   cl_int *d_excess = (cl_int *) clCreateBuffer(ctx, CL_MEM_READ_WRITE, nTiles * sizeof(cl_int), NULL, NULL);
 
    uint8_t srcImg[WIDTH][HEIGHT];
    uint8_t dstImg[WIDTH][HEIGHT];
@@ -479,7 +479,7 @@ int main(int argc, char **argv)
                    ldaNumer, ldaDenom);
 
    int *h_excess = (int *) calloc(nTiles, sizeof(int));
-   clEnqueueWriteBuffer(queue, d_excess, CL_TRUE, 0, nTiles * sizeof(cl_int), h_excess, 0, NULL, NULL);
+   clEnqueueWriteBuffer(queue, (cl_mem) d_excess, CL_TRUE, 0, nTiles * sizeof(cl_int), h_excess, 0, NULL, NULL);
 
    // Compute min and max
    cl_mem d_imgWorking1 = clCreateBuffer(ctx, CL_MEM_READ_WRITE,
