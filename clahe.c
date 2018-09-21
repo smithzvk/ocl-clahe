@@ -594,7 +594,7 @@ int main(int argc, char **argv)
    /* printf("\n"); */
 
    FILE *out = fopen(argv[2], "wb");
-   fprintf(out, header);
+   fprintf(out, "%s", header);
    fwrite(dstImg, sizeof(uint8_t), nPixels, out);
    fclose(out);
 
