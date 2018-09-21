@@ -503,8 +503,8 @@ int main(int argc, char **argv)
    /* int ldaDenom = 7; */
 
    /* int i = 0; */
-   for (int j = 0; j < xTiles; j++)
-      for (int i = 0; i < yTiles; i++)
+   for (int j = 0; j < yTiles; j++)
+      for (int i = 0; i < xTiles; i++)
          histogram(queue, k_histogram,
                    d_img, nBins,
                    i, j,
