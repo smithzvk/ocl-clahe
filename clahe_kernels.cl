@@ -198,10 +198,10 @@ localEqualize(global const uchar *data,
    global const int *hiLowerLeft = &hiCdfs[nBins * (tileHi.y * nWidthTiles + tileLo.x)];
    global const int *hiLowerRight = &hiCdfs[nBins * (tileHi.y * nWidthTiles + tileHi.x)];
 
-   float fval = ((rem * loUpperLeft[bin] + (1 - rem) * hiUpperLeft[bin]) * (1 - t.x) * (1 - t.y)
-                 + (rem * loUpperRight[bin] + (1 - rem) * hiUpperRight[bin]) * (t.x) * (1 - t.y)
-                 + (rem * loLowerLeft[bin] + (1 - rem) * hiLowerLeft[bin]) * (1 - t.x) * (t.y)
-                 + (rem * loLowerRight[bin] + (1 - rem) * hiLowerRight[bin]) * (t.x) * (t.y));
+   float fval = (((1 - rem) * loUpperLeft[bin] + rem * hiUpperLeft[bin]) * (1 - t.x) * (1 - t.y)
+                 + ((1 - rem) * loUpperRight[bin] + rem * hiUpperRight[bin]) * (t.x) * (1 - t.y)
+                 + ((1 - rem) * loLowerLeft[bin] + rem * hiLowerLeft[bin]) * (1 - t.x) * (t.y)
+                 + ((1 - rem) * loLowerRight[bin] + rem * hiLowerRight[bin]) * (t.x) * (t.y));
 
    uchar newVal = fval * normalizationFactor;
    out[j * width + i] = newVal;
