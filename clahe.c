@@ -339,6 +339,20 @@ int main(int argc, char **argv)
       return EXIT_FAILURE;
    }
 
+   char *scanSource = slurpFile("../prefixSum.cl");
+   if(!scanSource)
+   {
+      printf("Error: Failed to load compute program from file!\n");
+      return EXIT_FAILURE;
+   }
+
+   char *conversionsSource = slurpFile("../conversions.cl");
+   if(!conversionsSource)
+   {
+      printf("Error: Failed to load compute program from file!\n");
+      return EXIT_FAILURE;
+   }
+
    // Create a compute ctx
    //
    cl_context ctx = clCreateContext(0, 1, &computeDeviceId, NULL, NULL, &err);
@@ -369,8 +383,7 @@ int main(int argc, char **argv)
 
    // Build the program executable
    //
-   err = clBuildProgram(program, 0, NULL,
-                        "-DINFIX_PREFIX_SUM_OP=1 -DPREFIX_SUM_OP=+ -DPREFIX_SUM_DATA_TYPE=int",
+   err = clBuildProgram(program, 0, NULL, "",
                         NULL, NULL);
    if (err != CL_SUCCESS)
    {
@@ -383,30 +396,53 @@ int main(int argc, char **argv)
       return EXIT_FAILURE;
    }
 
-   cl_program maxScan = clCreateProgramWithSource(ctx, 1, (const char **) &source, NULL, &err);
+
+   cl_program scan = clCreateProgramWithSource(ctx, 1, (const char **) &scanSource, NULL, &err);
+   err = clBuildProgram(scan, 0, NULL,
+                        "-DPREFIX_SUM_INFIX_OP=1 -DPREFIX_SUM_OP=+ -DPREFIX_SUM_DATA_TYPE=int",
+                        NULL, NULL);
+   if (err != CL_SUCCESS)
+   {
+      size_t length;
+      char build_log[2048];
+      printf("%s\n", scanSource);
+      printf("Error: Failed to build scan executable!\n");
+      clGetProgramBuildInfo(scan, computeDeviceId, CL_PROGRAM_BUILD_LOG, sizeof(build_log), build_log, &length);
+      printf("%s\n", build_log);
+      return EXIT_FAILURE;
+   }
+
+   cl_program maxScan = clCreateProgramWithSource(ctx, 1, (const char **) &scanSource, NULL, &err);
    err = clBuildProgram(maxScan, 0, NULL,
-                        "-DINFIX_PREFIX_SUM_OP=0 -DPREFIX_SUM_OP=max -DPREFIX_SUM_DATA_TYPE=uchar",
+                        "-DPREFIX_SUM_INFIX_OP=0 -DPREFIX_SUM_OP=max -DPREFIX_SUM_DATA_TYPE=uchar",
                         NULL, NULL);
 
-   cl_program minScan = clCreateProgramWithSource(ctx, 1, (const char **) &source, NULL, &err);
+   cl_program minScan = clCreateProgramWithSource(ctx, 1, (const char **) &scanSource, NULL, &err);
    err = clBuildProgram(minScan, 0, NULL,
-                        "-DINFIX_PREFIX_SUM_OP=0 -DPREFIX_SUM_OP=min -DPREFIX_SUM_DATA_TYPE=uchar",
+                        "-DPREFIX_SUM_INFIX_OP=0 -DPREFIX_SUM_OP=min -DPREFIX_SUM_DATA_TYPE=uchar",
+                        NULL, NULL);
+
+   cl_program ucharFloatConv = clCreateProgramWithSource(ctx, 1, (const char **) &conversionsSource, NULL, &err);
+   err = clBuildProgram(ucharFloatConv, 0, NULL,
+                        "-DTYPE_A=uchar -DTYPE_B=float",
                         NULL, NULL);
 
    free(source);
+   free(scanSource);
+   free(conversionsSource);
 
    // MY CODE HERE
 
    int nPixels = WIDTH * HEIGHT;
 
    cl_kernel k_histogram = clCreateKernel(program, "histogram", &err);
-   cl_kernel k_prefixSum = clCreateKernel(program, "prefixSum", &err);
-   cl_kernel k_prefixSumIncToExc = clCreateKernel(program, "prefixSumIncToExc", &err);
    cl_kernel k_equalize = clCreateKernel(program, "equalize", &err);
    cl_kernel k_localEqualize = clCreateKernel(program, "localEqualize", &err);
    cl_kernel k_clipHistogram = clCreateKernel(program, "clipHistogram", &err);
    cl_kernel k_addExcess = clCreateKernel(program, "addExcess", &err);
    cl_kernel k_localHistogram = clCreateKernel(program, "localHistogram", &err);
+   cl_kernel k_prefixSum = clCreateKernel(scan, "prefixSum", &err);
+   cl_kernel k_prefixSumIncToExc = clCreateKernel(scan, "prefixSumIncToExc", &err);
    cl_kernel k_min = clCreateKernel(minScan, "prefixSum", &err);
    cl_kernel k_max = clCreateKernel(maxScan, "prefixSum", &err);
    if (err != CL_SUCCESS)
