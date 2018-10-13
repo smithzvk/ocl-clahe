@@ -165,6 +165,50 @@ int histogram(cl_command_queue queue,
    }
 }
 
+int localHistogram(cl_command_queue queue,
+                   cl_kernel k_histogram,
+                   cl_mem d_img,
+                   cl_int nBins,
+                   cl_mem d_hist,
+                   cl_int minVal,
+                   cl_int maxVal,
+                   cl_int width,
+                   cl_int height,
+                   cl_int tileWidth,
+                   cl_int tileHeight)
+{
+   cl_int nWidthTiles = width / tileWidth;
+
+   cl_int err = CL_SUCCESS;
+   err |= clSetKernelArg(k_histogram, 0, sizeof(cl_mem), &d_img);
+   err |= clSetKernelArg(k_histogram, 1, sizeof(cl_int), &width);
+   err |= clSetKernelArg(k_histogram, 2, sizeof(cl_int), &height);
+   err |= clSetKernelArg(k_histogram, 3, sizeof(cl_int), &nWidthTiles);
+   err |= clSetKernelArg(k_histogram, 4, sizeof(cl_int), &tileWidth);
+   err |= clSetKernelArg(k_histogram, 5, sizeof(cl_int), &tileHeight);
+   err |= clSetKernelArg(k_histogram, 6, sizeof(cl_mem), &d_hist);
+   err |= clSetKernelArg(k_histogram, 7, sizeof(cl_int), &nBins);
+   err |= clSetKernelArg(k_histogram, 8, sizeof(cl_int), &minVal);
+   err |= clSetKernelArg(k_histogram, 9, sizeof(cl_int), &maxVal);
+   if (err != CL_SUCCESS)
+   {
+      printf("Error: Failed to set arguments!\n");
+      return EXIT_FAILURE;
+   }
+   else
+   {
+      size_t gws[] = {width, height};
+      err |= clEnqueueNDRangeKernel(queue, k_histogram, 2, NULL, gws, NULL, 0, NULL, NULL);
+      if (err != CL_SUCCESS)
+      {
+         printf("Error: Failed to enqueue kernel!\n");
+         return EXIT_FAILURE;
+      }
+   }
+}
+
+
+
 int equalize(cl_command_queue queue,
              cl_kernel k_equalize,
              cl_mem d_img,
@@ -502,17 +546,22 @@ int main(int argc, char **argv)
    /* int ldaNumer = 7*WIDTH+4; */
    /* int ldaDenom = 7; */
 
-   /* int i = 0; */
-   for (int j = 0; j < yTiles; j++)
-      for (int i = 0; i < xTiles; i++)
-         histogram(queue, k_histogram,
-                   d_img, nBins,
-                   i, j,
-                   d_hist,
-                   minVal, maxVal,
-                   width, height,
-                   tileWidth, tileHeight,
-                   ldaNumer, ldaDenom);
+   /* for (int j = 0; j < yTiles; j++) */
+   /*    for (int i = 0; i < xTiles; i++) */
+   /*       histogram(queue, k_histogram, */
+   /*                 d_img, nBins, */
+   /*                 i, j, */
+   /*                 d_hist, */
+   /*                 minVal, maxVal, */
+   /*                 width, height, */
+   /*                 tileWidth, tileHeight, */
+   /*                 ldaNumer, ldaDenom); */
+
+   /* Calculate all of the histograms at once */
+   localHistogram(queue, k_localHistogram,
+                  d_img, nBins, d_hist, minVal, maxVal,
+                  width, height,
+                  tileWidth, tileHeight);
 
    int *h_excess = (int *) calloc(nTiles, sizeof(int));
    clEnqueueWriteBuffer(queue, (cl_mem) d_excess, CL_TRUE, 0, nTiles * sizeof(cl_int), h_excess, 0, NULL, NULL);

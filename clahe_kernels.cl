@@ -116,7 +116,8 @@ localHistogram(global uchar *data,
                int width,
                int height,
                int nWidthTiles,
-               int nHeightTiles,
+               int tileWidth,
+               int tileHeight,
                global volatile int *hists,
                int nBins,
                int min,
@@ -127,16 +128,15 @@ localHistogram(global uchar *data,
 
    if (i >= width || j >= height) return;
 
-   int iTile = i / nWidthTiles;
-   int jTile = j / nHeightTiles;
+   int iTile = i / tileWidth;
+   int jTile = j / tileHeight;
 
    global volatile int *hist = &hists[nBins * (jTile * nWidthTiles + iTile)];
 
-   uchar val = data[i];
+   uchar val = data[i + j * width];
    int bin = clamp((int) floor(((float) (val - min)) * nBins / (max - min)),
                    (int) 0,
                    (int) (nBins - 1));
-   /* printf("%d %d %f %d\n", min, max, floor(((float) (val - min)) * nBins / (max - min)), bin); */
    atomic_inc(&hist[bin]);
 }
 
