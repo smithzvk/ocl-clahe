@@ -146,6 +146,8 @@ localEqualize(global const uchar *data,
               int height,
               int nWidthTiles,
               int nHeightTiles,
+              uchar xWrap,
+              uchar yWrap,
               int valMin,
               int valMax,
               global const int *loCdfs,
@@ -181,10 +183,18 @@ localEqualize(global const uchar *data,
    float2 ssx = convert_float2(sx) / convert_float2(tileSize);
 
 
-   int2 tileLo = max(convert_int2(floor(ssx)),
-                     (int2) (0, 0));
-   int2 tileHi = min(convert_int2(ceil(ssx)),
-                     (int2) (nWidthTiles-1, nHeightTiles-1));
+   int2 periodic = (int2) ((int) xWrap, (int) yWrap);
+
+   /* NOTE: vector comparisons result in -1 for true components and 0 for false,
+    * which requires extra minus signs. */
+   int2 tileLo = convert_int2(floor(ssx))
+      - ((ssx < (float2) (0.0f, 0.0f))
+         * ((int2) (1, 1)
+            + periodic * (int2) (nWidthTiles - 1, nHeightTiles - 1)));
+   int2 tileHi = convert_int2(ceil(ssx))
+      + ((ssx > (float2) ((float) nWidthTiles - 1, (float) nHeightTiles - 1))
+         * ((int2) (1, 1)
+            + periodic * (int2) (nWidthTiles - 1, nHeightTiles - 1)));
 
    float2 t = clamp(ssx - floor(ssx), (float2) (0.0f, 0.0f), (float2) (1.0f, 1.0f));
 

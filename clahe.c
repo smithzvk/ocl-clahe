@@ -303,9 +303,9 @@ int main(int argc, char **argv)
 {
    cl_int err = CL_SUCCESS;
 
-   if (argc != 6)
+   if (argc != 7)
    {
-      fprintf(stderr, "Usage: %s input-pgm-image output-pgm-image n-tiles contrast-limit print-histograms\n", argv[0]);
+      fprintf(stderr, "Usage: %s input-pgm-image output-pgm-image n-tiles periodic contrast-limit print-histograms\n", argv[0]);
       exit(1);
    }
 
@@ -324,8 +324,22 @@ int main(int argc, char **argv)
    yTiles = atoi(yTilesString);
    nTiles = xTiles * yTiles;
 
-   float contrastLimit = atof(argv[4]);
-   printHistograms = atoi(argv[5]);
+   char *periodicSpec = argv[4];
+   char *xWrapString = strtok(periodicSpec, "x");
+   if (xWrapString == NULL)
+   {
+      printf("Error parsing periodic BC specification\n");
+      return EXIT_FAILURE;
+   }
+   char *yWrapString = strtok(NULL, "x");
+   if (yWrapString == NULL)
+      yWrapString = xWrapString;
+
+   char xWrap = atoi(xWrapString);
+   char yWrap = atoi(yWrapString);
+
+   float contrastLimit = atof(argv[5]);
+   printHistograms = atoi(argv[6]);
 
    cl_platform_id platIds[10] = {0};
    cl_uint nPlatforms;
@@ -624,13 +638,15 @@ int main(int argc, char **argv)
    err |= clSetKernelArg(k_localEqualize, 2, sizeof(cl_int), &height);
    err |= clSetKernelArg(k_localEqualize, 3, sizeof(cl_int), &nWidthTiles);
    err |= clSetKernelArg(k_localEqualize, 4, sizeof(cl_int), &nHeightTiles);
-   err |= clSetKernelArg(k_localEqualize, 5, sizeof(cl_int), &minVal);
-   err |= clSetKernelArg(k_localEqualize, 6, sizeof(cl_int), &maxVal);
-   err |= clSetKernelArg(k_localEqualize, 7, sizeof(cl_mem), &d_working);
-   err |= clSetKernelArg(k_localEqualize, 8, sizeof(cl_mem), &d_hist);
-   err |= clSetKernelArg(k_localEqualize, 9, sizeof(cl_int), &nBins);
-   err |= clSetKernelArg(k_localEqualize, 10, sizeof(cl_mem), &d_imgOut);
-   err |= clSetKernelArg(k_localEqualize, 11, sizeof(cl_float), &normalizationFactor);
+   err |= clSetKernelArg(k_localEqualize, 5, sizeof(cl_uchar), &xWrap);
+   err |= clSetKernelArg(k_localEqualize, 6, sizeof(cl_uchar), &yWrap);
+   err |= clSetKernelArg(k_localEqualize, 7, sizeof(cl_int), &minVal);
+   err |= clSetKernelArg(k_localEqualize, 8, sizeof(cl_int), &maxVal);
+   err |= clSetKernelArg(k_localEqualize, 9, sizeof(cl_mem), &d_working);
+   err |= clSetKernelArg(k_localEqualize, 10, sizeof(cl_mem), &d_hist);
+   err |= clSetKernelArg(k_localEqualize, 11, sizeof(cl_int), &nBins);
+   err |= clSetKernelArg(k_localEqualize, 12, sizeof(cl_mem), &d_imgOut);
+   err |= clSetKernelArg(k_localEqualize, 13, sizeof(cl_float), &normalizationFactor);
    if (err != CL_SUCCESS)
    {
       printf("Error: Failed to set arguments!\n");
@@ -679,8 +695,19 @@ int main(int argc, char **argv)
    /* printf("\n"); */
 
    FILE *out = fopen(argv[2], "wb");
-   fprintf(out, "%s", header);
-   fwrite(dstImg, sizeof(uint8_t), nPixels, out);
+   /* fprintf(out, "%s", header); */
+   /* fwrite(dstImg, sizeof(uint8_t), nPixels, out); */
+   fprintf(out, "P5\n640 640\n255\n");
+   for (int i = 0; i < 320; i++)
+   {
+      fwrite(dstImg[i], sizeof(uint8_t), 320, out);
+      fwrite(dstImg[i], sizeof(uint8_t), 320, out);
+   }
+   for (int i = 0; i < 320; i++)
+   {
+      fwrite(dstImg[i], sizeof(uint8_t), 320, out);
+      fwrite(dstImg[i], sizeof(uint8_t), 320, out);
+   }
    fclose(out);
 
    free(h_excess);
